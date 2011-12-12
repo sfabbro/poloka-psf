@@ -7,7 +7,7 @@ def build( bld ):
     sources = bld.path.ant_glob('*.cc')    
     lib = bld.shlib(source = sources,
                     target = 'poloka-psf', 
-                    includes = ['.', '..'], 
+                    includes = ['.'], 
                     libs     = ['m'], 
                     use      = ['POLOKA_CORE'],
                     vnum     = frogsutils.get_version_number())
