@@ -1431,9 +1431,14 @@ bool ImagePSF::StackResiduals(PSFStarList &Stars,
 	     README.ls_biases.  Note that this introduces
 	     non-linearities.
 	  */
+
+#ifdef IGNORE_NOISE_FROM_OBJECT
+	  // for test purposes, because then, the estimator becomes fully linear.
 #warning "wrong weigths in StackResiduals"
-	  //	  double pixWeight =  1./(1./ W(i,j)+expectedVal/gain);
 	  double pixWeight =  W(i,j);
+#else
+	  double pixWeight =  1./(1./ W(i,j)+expectedVal/gain);
+#endif
 	  if (pixWeight <= 0) continue;
 	  totW += pixWeight;
 	  
@@ -1765,9 +1770,13 @@ bool ImagePSF::StackResiduals(PSFStarList &Stars,
 	       but using the model and *NOT* the data.See README.ls_biases.
 	       Note that this introduces non-linearities.
             */
-	    //	    double pixWeight =  1./(1./ W(i,j)+expectedVal/gain);
-# warning "wrong weight in StackResiduals"	    
+#ifdef IGNORE_NOISE_FROM_OBJECT
+	    // for test purposes, because then, the estimator becomes fully linear.
+#warning "wrong weigths in StackResiduals"
 	    double pixWeight =  W(i,j);
+#else
+	    double pixWeight =  1./(1./ W(i,j)+expectedVal/gain);
+#endif
 	    if (pixWeight <= 0) continue;
 	    totW += pixWeight;
 
@@ -2252,89 +2261,53 @@ core poloka and the PSF code
 #include "astroutils.h" // IdentifyDeepField.
 
 bool MakePSF(const string &ImageName, const bool RefitPSF,
-	     const bool UseExternalCatalog, const string & ExternalCatalogName)
+	     const string &ExternalCatalogName)
 {
   ReducedImage *ri = new ReducedImage(ImageName);
   ReducedImageRef reducedImage = ri;
   if (!RefitPSF && FileExists(PSFFileName(*ri))) 
     {
-      cout << " MakePSF: image " << ri->Name() << " already has a psf file and no PSF refit requated. Nothing done " << endl;
+      cout << " MakePSF: image " << ri->Name() << " already has a psf file and no PSF refit requested. Nothing done " << endl;
       return true;
     }
 
-  reducedImage->MakeAperCat();
-  AperSEStarList starImageCat;
+  AperSEStarList starImageCat; // the star list to model the PSF.
 
-  if (UseExternalCatalog && ExternalCatalogName == "")
-    {
+  if (ExternalCatalogName != "") // both cases tested 
+    { 
       FitsHeader head(reducedImage->FitsName());
-      string fieldName;
-      if (IdentifyDeepField(head, fieldName))
-	{
-	  ostringstream starRefCatName;
-	  starRefCatName << fieldName << ".list";
-	  string wholeStarRefCatName = DbConfigFindCatalog(starRefCatName.str(), /* Throw = */ false);
-	  if (wholeStarRefCatName != "")
-	    {
-	      Gtransfo *readWcs;
-	      TanPix2RaDec *wcs;
-	      if (WCSFromHeader(head, readWcs) 
-		  && ((wcs = dynamic_cast<TanPix2RaDec*>(readWcs))))
-		{
-		  BaseStarList starRefCat(wholeStarRefCatName);
-		  cout << " read " << starRefCat.size() << " stars from " 
-		       << wholeStarRefCatName << endl;
-
-		  /* projection from sideral coordinates to tg plane
-		     (with coordinates in degrees)
-		  */
-		  GtransfoLin id;
-		  TanRaDec2Pix projection(id, wcs->TangentPoint());
-		  Gtransfo *im2TgPlane = GtransfoCompose(&projection, wcs);
-
-		  // project the star catalog to the tg plane:
-		  starRefCat.ApplyTransfo(projection);
-		  /* for information : non-destructive way of doing the 
-		     same thing : 
-		     TStarList projStarCatalog(starCat, projection);
-		  */
-		  AperSEStarList wholeImageCat(reducedImage->AperCatalogName());
-
-		  StarMatchList *matches = ListMatchCollect(AperSE2Base(wholeImageCat), 
-							    starRefCat,
-							    im2TgPlane,
-							    2./3600.);
-		  cout << " found " << matches->size() << " matches " << endl;
-		  delete im2TgPlane;
-		  for (StarMatchIterator i=matches->begin(); i != matches->end(); ++i)
-		    {
-		      AperSEStar *s = dynamic_cast<AperSEStar*>(&(*(i->s1)));
-		      if (s->Flag() || s->FlagBad()) continue;
-		      if (s->gflag) continue;
-		      if (s->IsSaturated() ) continue ;      
-		      if (s->flux<0 || s->EFlux() < 0 ) continue;
-
-		      starImageCat.push_back(s);
-		    }
-		  cout << " kept " << starImageCat.size() << " stars " << endl;
-		  delete matches;
-		}
-	    }
-	}
-    }
-
-
- if (UseExternalCatalog && ExternalCatalogName != "")
-    {
-      DicStarList starRefCat(ExternalCatalogName);
+      BaseStarList starRefCat(ExternalCatalogName);
       cout << ExternalCatalogName << " :  read " << starRefCat.size() << " stars " << endl;
-      BaseStarList *Lref = (BaseStarList*) & starRefCat; 
+      Gtransfo *wcs;
+      if (!WCSFromHeader(head, wcs))
+	{
+	  cout << "ERROR in MakePSF : could not find a WCS in " 
+	       << head.FileName() << endl;
+	  return false;
+	}
+      // we will match in some sort of tangent plane
+      // get a plausible tg point:
+      Point tgPoint = wcs->apply(Frame(head).Center());
+      // build a transfo from sky to tg plane (coordinates in degrees)
+      TanRaDec2Pix sky2Tg(GtransfoLin(), tgPoint);
+      Gtransfo *im2TgPlane = GtransfoCompose(&sky2Tg, wcs);
+      // project the star catalog to the tg plane:
+      starRefCat.ApplyTransfo(sky2Tg);
+      /* for information : non-destructive way of doing the 
+	 same thing : 
+	 TStarList projStarCatalog(starCat, projection);
+      */
       AperSEStarList wholeImageCat(reducedImage->AperCatalogName());
-      double dmax = 1. ;
-      CountedRef<Gtransfo> identity = new GtransfoLin(); 
+      double cutArcSec = 2.; // could be in DataCards
       StarMatchList *matches = ListMatchCollect(AperSE2Base(wholeImageCat), 
-						*Lref,identity, dmax );
+						starRefCat,
+						im2TgPlane,
+						cutArcSec/3600.);
       cout << " found " << matches->size() << " matches " << endl;
+      delete im2TgPlane;
+      delete wcs; 
+      // ambiguous matches might be identified here, if needed.
+      // now apply quality cuts 
       for (StarMatchIterator i=matches->begin(); i != matches->end(); ++i)
 	{
 	  AperSEStar *s = dynamic_cast<AperSEStar*>(&(*(i->s1)));
@@ -2348,19 +2321,13 @@ bool MakePSF(const string &ImageName, const bool RefitPSF,
       delete matches;
       string catName = reducedImage->StarCatalogName()+".match.list";
       starImageCat.write(catName);
+      cout << "INFO : MakePSF writing the input candidate star list " 
+	   << catName << endl; 
     }
-
-
-
-  if (!UseExternalCatalog || starImageCat.size() == 0)
-    {
-      if (!reducedImage->MakeStarCat())
-	{
-	  cout << " ERROR : MakePSF: No PSF for " << reducedImage->Name() 
-	       << "( missing star catalog) " << endl;
-	  return false;
-	}
+  else // i.e (ExternalCatalogName == "")
+    { // read the star catalog (extracted from the aperture catalog) 
       string catName = reducedImage->StarCatalogName();
+      cout << "INFO : MakePSF input star list : " << catName << endl;
       starImageCat.read(catName);
       cout << " MakePSF : using stars from " << catName << endl;
     }

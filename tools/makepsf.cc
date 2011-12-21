@@ -9,7 +9,8 @@
 
 static void usage(const string &prog)
 {
-  cerr << prog << " [-f (force)] [-L (use local star cat)] [-d <datacards>] <dbimage ...> " << endl;
+  cout << prog << " [-f (force)] [-d <datacards>] [-c <star catalog>] <dbimage ...> " << endl;
+  cout << " if a star catalog is provided, it is assumed to be in sidereal coordinates, and the image WCS will be used to match with the aperture catalog " << endl;
   exit(EXIT_FAILURE);
 }
  
@@ -19,7 +20,8 @@ int main( int nargs, char **args)
   if (nargs <=1) usage(args[0]);
   bool success = true;
   vector<string> names;
-  bool force = false, use_external_cat= true;
+  string externalCatalogName;
+  bool force = false;
   for (int i=1; i < nargs; ++i)
     {
       const char *arg = args[i];
@@ -32,17 +34,15 @@ int main( int nargs, char **args)
 	{
 	case 'h' : usage(args[0]); break;
 	case 'f' : force = true; break;
-	case 'L' : use_external_cat= false; break;
 	case 'd' : SetDatacardsFileName(args[++i]); break;
+	case 'c' : externalCatalogName = args[++i]; break;
 	default : usage(args[0]); break;
 	}
     }
   try
     {
-  for (unsigned k=0; k<names.size(); ++k)
-    {
-      success &= MakePSF(names[k], force, use_external_cat);
-    }
+      for (unsigned k=0; k<names.size(); ++k)
+	success &= MakePSF(names[k], force, externalCatalogName);
     }
   catch(PolokaException p)
     {

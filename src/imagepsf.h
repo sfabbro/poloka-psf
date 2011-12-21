@@ -116,6 +116,6 @@ class ImagePSF : public RefCount {
 void SetPSFCardsFileName(const string &FileName);
 
 bool MakePSF(const string &ImageName, const bool RefitPSF = false,
-	     const bool UseExternalCatalog = true, const string & ExternalCatalogName="");
+	     const string & ExternalCatalogName="");
 
 #endif /* IMAGEPSF__H */
