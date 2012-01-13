@@ -169,12 +169,12 @@ void GaussPSF::InitParamsFromSeeing(const double &Seeing, Vect &Params) const
 /************* MoffatPSF *******************/
 
 
-class MoffatPSF : public AnalyticPSF {
+class MoffatPSFFixedBeta : public AnalyticPSF {
 protected :
   const double exponent;
  public :
 
-  MoffatPSF(const double &Exponent) : exponent(Exponent) 
+  MoffatPSFFixedBeta(const double &Beta) : exponent(Beta) 
   {paramNames.push_back("wxx"); 
     paramNames.push_back("wyy");paramNames.push_back("wxy");}
 
@@ -189,17 +189,17 @@ protected :
   { return (Params(0)*Params(1)-sq(Params(2))) > 0;}
 
 
-  virtual ~MoffatPSF(){}; // warning killer
+  virtual ~MoffatPSFFixedBeta(){}; // warning killer
 
 };
 
 
 /**************** Moffat20PSF ****************/
 
-class Moffat20PSF : public MoffatPSF {
+class Moffat20PSF : public MoffatPSFFixedBeta {
  public :
 
-  Moffat20PSF() :MoffatPSF(2.0) {};
+  Moffat20PSF() :MoffatPSFFixedBeta(2.0) {};
 
   string Name() const {return "MOFFAT20";}
 
@@ -207,10 +207,10 @@ class Moffat20PSF : public MoffatPSF {
 
 };
 
-class Moffat25PSF : public MoffatPSF {
+class Moffat25PSF : public MoffatPSFFixedBeta {
  public :
 
-  Moffat25PSF() :MoffatPSF(2.5) {};
+  Moffat25PSF() :MoffatPSFFixedBeta(2.5) {};
 
   string Name() const {return "MOFFAT25";}
 
@@ -218,10 +218,10 @@ class Moffat25PSF : public MoffatPSF {
 
 };
 
-class Moffat30PSF : public MoffatPSF {
+class Moffat30PSF : public MoffatPSFFixedBeta {
  public :
 
-  Moffat30PSF() :MoffatPSF(3.0) {};
+  Moffat30PSF() :MoffatPSFFixedBeta(3.0) {};
 
   string Name() const {return "MOFFAT30";}
 
@@ -231,7 +231,7 @@ class Moffat30PSF : public MoffatPSF {
   
 
 
-double MoffatPSF::Profile(const double &X, const double &Y,
+double MoffatPSFFixedBeta::Profile(const double &X, const double &Y,
 			  const Vect &Params,
 			  Vect *PosDer,
 			  Vect *ParamDer) const
@@ -256,12 +256,85 @@ double MoffatPSF::Profile(const double &X, const double &Y,
   return val;
 }
 
-void MoffatPSF::InitParamsFromSeeing(const double &Seeing, Vect &Params) const
+void MoffatPSFFixedBeta::InitParamsFromSeeing(const double &Seeing, Vect &Params) const
 {
   if (Params.Size() < NPar()) Params = Vect(NPar());
   Params(0) = sq(0.6547/Seeing);
   Params(1) = Params(0);
   Params(2) = 0;
+}
+
+/***********************     MoffatPSF with variable exponent **************/
+
+class MoffatPSF : public AnalyticPSF {
+
+private :
+  double startingBeta;
+  
+ public :
+
+  MoffatPSF(const double StartingBeta = 2.5)
+  {
+    paramNames.push_back("wxx"); 
+    paramNames.push_back("wyy");
+    paramNames.push_back("wxy");
+    paramNames.push_back("beta");
+    startingBeta = StartingBeta;
+  }
+
+  string Name() const {return "MOFFAT_VAR_BETA";}
+
+  unsigned NPar() const { return 4;}
+  double Profile(const double &X, const double &Y,
+			 const Vect &Params,
+			 Vect *PosDer = 0,
+			 Vect *ParamGradient = 0) const;
+  void InitParamsFromSeeing(const double &Seeing, Vect &Params) const;
+
+  bool CheckParams(const Vect &Params) const
+  { return (Params(0)*Params(1)-sq(Params(2))) > 0;}
+
+
+  virtual ~MoffatPSF(){}; // warning killer
+
+};
+
+
+void  MoffatPSF::InitParamsFromSeeing(const double &Seeing, Vect &Params) const
+{
+  if (Params.Size() < NPar()) Params = Vect(NPar());
+  Params(0) = sq(0.6547/Seeing);
+  Params(1) = Params(0);
+  Params(2) = 0;
+  Params(3) = startingBeta;
+}
+
+double MoffatPSF::Profile(const double &X, const double &Y,
+			  const Vect &Params,
+			  Vect *PosDer,
+			  Vect *ParamDer) const
+{
+  /* parameters (Params) wxx, wyy, wxy */
+  double exponent = Params(3);
+  double det = Params(0)*Params(1)-Params(2)*Params(2);
+  // in principle we should use sqrt(det). fabs saves some nan.
+  double norm = sqrt(fabs(det))*(exponent-1)/M_PI;
+  double fact =  1./(1.+(X*X*Params(0)+Y*Y*Params(1)+2*X*Y*Params(2)));
+  double val = pow(fact,exponent)*norm;
+  if (PosDer)
+    {
+      (*PosDer)(0) = 2*exponent*val*fact*(X*Params(0)+Y*Params(2));
+      (*PosDer)(1) = 2*exponent*val*fact*(Y*Params(1)+X*Params(2));
+    }
+  if (ParamDer)
+    {
+      (*ParamDer)(0) = -exponent*val*fact*(X*X)+ 0.5*val*Params(1)/det;
+      (*ParamDer)(1) = -exponent*val*fact*(Y*Y)+ 0.5*val*Params(0)/det;
+      (*ParamDer)(2) = -2*exponent*val*fact*(X*Y) - val*Params(2)/det;
+      (*ParamDer)(3) = (log(fact)+1./(exponent-1))*val;
+      
+    }
+  return val;
 }
 
 
@@ -287,6 +360,7 @@ const AnalyticPSF *ChooseAnalyticPSF(const string &Name)
       AddAnalyticPSF(new Moffat20PSF());
       AddAnalyticPSF(new Moffat25PSF());
       AddAnalyticPSF(new Moffat30PSF());
+      AddAnalyticPSF(new MoffatPSF());
     }
   for (unsigned k=0; k < Profiles.size(); ++k)
     if (Profiles[k]->Name() == Name) return Profiles[k];
@@ -299,6 +373,7 @@ const AnalyticPSF *ChooseAnalyticPSF(const string &Name)
 }
 
 
+/***************************************************/
 #ifdef TEST_CODE
 
 /* code to test a psf profile (in order to make sure that the 
