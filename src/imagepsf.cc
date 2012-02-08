@@ -796,6 +796,30 @@ double ImagePSF::PSFValueWithParams(const double &Xc, const double &Yc,
   return val;
 }
 
+void ImagePSF::PSFMoments(const double & Xc, const double & Yc,
+			  double & momentx1, double & momenty1,
+			  double & momentx2, double & momenty2,
+			  double & momentxy) const {
+  
+  momentx1 = 0;
+  momenty1 = 0;
+  momentx2 = 0;
+  momenty2 = 0;
+  momentxy = 0;
+  int imin, imax, jmin, jmax;
+  StampLimits(Xc,Yc,imin,imax,jmin,jmax);
+  for(int i = imin; i < imax; ++i){
+    for(int j = jmin; j < jmax; ++j){
+      momentx1 += (i - Xc) * PSFValue(Xc,Yc,i,j);
+      momenty1 += (j - Yc) * PSFValue(Xc,Yc,i,j);
+      momentx2 += (i - Xc) * (i - Xc) * PSFValue(Xc,Yc,i,j);
+      momenty2 += (j - Yc) * (j - Yc) * PSFValue(Xc,Yc,i,j);
+      momentxy += (i - Xc) * (j - Yc) * PSFValue(Xc,Yc,i,j);
+    }
+  }
+  
+}
+
 void ImagePSF::StampLimits(const double &X, const double &Y, 
 			   int &BeginI, int &EndI,
 			   int &BeginJ, int &EndJ) const
@@ -1233,7 +1257,16 @@ bool ImagePSF::FitPSF(PSFStarList &Stars)
   Gtransfo *wcs;
   if (!WCSFromHeader(image,wcs)) wcs = NULL;
   Stars.WriteTuple(reducedImage->Dir()+"psftuple.list",wcs, this);
-  Stars.write(reducedImage->Dir()+"psfstars.list");
+  ofstream os((reducedImage->Dir()+"psfstars.list").c_str());
+  double momentx1, momenty1, momentx2, momenty2, momentxy;
+  PSFMoments((reducedImage->XSize())/2,(reducedImage->YSize())/2,momentx1,momenty1,momentx2,momenty2,momentxy);
+  os << "@MOMENTX1 " << momentx1 << endl
+     << "@MOMENTY1 " << momenty1 << endl
+     << "@MOMENTX2 " << momentx2 << endl
+     << "@MOMENTY2 " << momenty2 << endl
+     << "@MOMENTXY " << momentxy << endl;
+  Stars.write(os);
+  os.close();
   if (wcs) delete wcs;
   return true;
 }

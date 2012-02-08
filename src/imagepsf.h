@@ -69,7 +69,12 @@ class ImagePSF : public RefCount {
 		  const int IPix, const int JPix,
 		  Vect *PosDer = 0, Vect *ParamDer = 0, double *AnalyticValue = NULL) const;
 
-
+  //! Compute the first and second order moments at (Xc,Yc)
+  void PSFMoments(const double & Xc, const double & Yc,
+		  double & momentx1, double & momenty1,
+		  double & momentx2, double & momenty2,
+		  double & momentxy) const;
+  
   //! Access to current analytical PSF params (which may depend on position in the frame).
   Vect PSFParams(const double &X, const double &Y) const;
 
