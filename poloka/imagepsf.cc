@@ -1266,7 +1266,6 @@ bool ImagePSF::FitPSF(PSFStarList &Stars)
      << "@MOMENTXY " << momentxy << endl;
   Stars.write(os);
   os.close();
-  if (wcs) delete wcs;
   return true;
 }
 
@@ -2178,8 +2177,7 @@ bool ImagePSF::FitNonLinearity(const bool WriteResTuple) /* const */
   // from here on, it is only diagnostic code..
 
   // write the "corrected" star list
-  Gtransfo *wcs;
-  if (!WCSFromHeader(image,wcs)) wcs = NULL;
+  GtransfoRef wcs = WCSFromHeader(image);
   stars.WriteTuple((reducedImage->Dir()+"/psfstars2.list").c_str(),wcs,this);
 
   // write the "corrected" psf
