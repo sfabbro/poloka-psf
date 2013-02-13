@@ -1,0 +1,10 @@
+prefix=@prefix@
+libdir=@libdir@
+includedir=@includedir@
+
+Name: poloka-psf
+Description: psf module for the poloka suite
+Version: @PACKAGE_VERSION@
+Libs: -L${libdir}
+Requires: poloka-core
+Cflags: -I${includedir}

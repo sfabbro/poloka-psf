@@ -1,15 +1,15 @@
-poloka - aka TOADS
-==================
+poloka-@MODULE@
+===========
 
-Poloka is a software package to process astronomical images. It can do
-several processing steps such as flat-fielding, detection/object
-cataloguing, aperture and PSF photometry, geometric
-transformation/resampling and image stacking. But what it does best is
-image subtraction (PSF match) and light curve reconstruction for
-transient objects such as supernova.
+poloka is a software package to process astronomical
+images. poloka-@MODULE@ is the @MODULE@fielding module
+of the poloka suite. It contains:
 
-To install poloka, see the INSTALL file. 
+* bias subtraction, @MODULE@ and super@MODULE@ building
+* fringe map building (with PCA) and automatic fringe subtraction
 
-To develop with poloka, read the code :( and see README.dev. 
-For all other documentation, we have yet to write something decent. To
-contact authors, see AUTHORS.
+It is a bit old and stale package since most observatories provide
+calibration files nowadays. It also needs a full rewrite as most
+poloka modules.
+
+To install poloka-sub, see the INSTALL file.
