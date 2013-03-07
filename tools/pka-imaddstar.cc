@@ -7,22 +7,22 @@
 #include <poloka/fileutils.h>
 #include <poloka/fitsimage.h>
 
-static void usage(const char* prog) {
-  cerr << prog << " <file with ra dec mag> <dbimage>...<dbimage>\n";
+static void usage(const char* progname) {
+  cerr << "Usage: " << progname << " FILE DBIMAGE...\n"
+       << "Add list of point sources to an DBIMAGE using PSF\n"
+       << "Input FILE format: ID RA DEC MAG\n\n";
   exit(EXIT_FAILURE);
 }
 
-void random_init(int& seed) {
+static void random_init(int& seed) {
   if (seed == 0)
     seed = time(NULL);
   srand(seed);
 }
 
-
 static double random_uniform() {
   return double(rand()) / RAND_MAX;
 }
-
 
 static double gammln(const double& xx) {
   static const double cof[6]= 
@@ -73,7 +73,9 @@ static double random_poisson(const double& xm) {
 }
 
 struct ImageAddStar {
+
   BaseStarList stars;
+
   ImageAddStar(const char* filename) {
     stars.read(filename);
   }
@@ -134,15 +136,16 @@ struct ImageAddStar {
 };
 
 int main( int nargs, char **args){
-  if (nargs <=1) usage(args[0]);
 
+  if (nargs <=1) usage(args[0]);
+  int seed=0;
+  // should really make that seeding an cmd line argument
   ImageAddStar imAddStar(args[1]);
   list<string> imList;
 
   for (int i=2; i < nargs; ++i)
     imList.push_back(args[i]);
 
-  int seed=0;
   random_init(seed);
   for_each(imList.begin(), imList.end(), imAddStar);
 

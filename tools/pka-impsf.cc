@@ -2,54 +2,51 @@
 #include <iostream>
 #include <string>
 
-
 #include <poloka/imagepsf.h>
 #include <poloka/polokaconf.h>
 #include <poloka/polokaexception.h>
 
-static void usage(const string &prog)
-{
-  cout << prog << " [-f (force)] [-d <datacards>] [-c <star catalog>] <dbimage ...> " << endl;
-  cout << " if a star catalog is provided, it is assumed to be in sidereal coordinates, and the image WCS will be used to match with the aperture catalog " << endl;
+static void usage(const char* progname) {
+  cerr << "Usage: " << progname << " [OPTION]... DBIMAGE...\n"
+       << "Make and fit a Point Spread Function for a DBIMAGE\n\n"
+       << "    -f         : force overwrite\n"
+       << "    -d OPTION  : use this datacard option file\n"
+       << "    -c FILE    : use an external catalogue (sideral coordinates)\n\n";
   exit(EXIT_FAILURE);
 }
  
 
-int main( int nargs, char **args)
-{
+int main( int nargs, char **args) {
+
   if (nargs <=1) usage(args[0]);
-  bool success = true;
-  vector<string> names;
+
+  list<string> imList;
   string externalCatalogName;
   bool force = false;
-  for (int i=1; i < nargs; ++i)
-    {
-      const char *arg = args[i];
-      if (arg[0] != '-')
-	{
-	  names.push_back(args[i]);
-	  continue;
-	}
-      switch (arg[1])
-	{
-	case 'h' : usage(args[0]); break;
-	case 'f' : force = true; break;
-	case 'd' : SetDatacardsFileName(args[++i]); break;
-	case 'c' : externalCatalogName = args[++i]; break;
-	default : usage(args[0]); break;
-	}
-    }
-  try
-    {
-      for (unsigned k=0; k<names.size(); ++k)
-	success &= MakePSF(names[k], force, externalCatalogName);
-    }
-  catch(PolokaException p)
-    {
-      p.PrintMessage(cout);
-      success = false;
-    };
 
+  for (int i=1; i < nargs; ++i)  {
+    const char *arg = args[i];
+    if (arg[0] != '-') {
+      imList.push_back(args[i]);
+      continue;
+    }
+    switch (arg[1]) {
+    case 'f' : force = true; break;
+    case 'd' : SetDatacardsFileName(args[++i]); break;
+    case 'c' : externalCatalogName = args[++i]; break;
+    default : usage(args[0]); break;
+    }
+  }
+
+  bool status = true;
+  try {
+    for (list<string>::const_iterator it=imList.begin(); it != imList.end(); ++it)
+      status &= MakePSF(*it, force, externalCatalogName);
+  }
+  catch(PolokaException p) {
+      p.PrintMessage(cout);
+      status = false;
+  }
  
-  if (success) return EXIT_SUCCESS; else return EXIT_FAILURE;
+  return status? EXIT_SUCCESS : EXIT_FAILURE;
 }
