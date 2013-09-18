@@ -150,7 +150,7 @@ double GaussPSF::Profile(const double &X, const double &Y,
     {
       (*ParamDer)(0) = -0.5*val*(X*X - Params(1)/det);
       (*ParamDer)(1) = -0.5*val*(Y*Y - Params(0)/det);
-      (*ParamDer)(2) = -val*(X*Y  - Params(2)/det);
+      (*ParamDer)(2) = -val*(X*Y  + Params(2)/det);
     }
   return val;
 }
